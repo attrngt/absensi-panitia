@@ -39,6 +39,7 @@ export default function Home() {
     "design",
     "produksi",
     "publikasi",
+    "PI",
   ];
 
   useEffect(() => {
