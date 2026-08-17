@@ -1,69 +1,198 @@
-import Image from "next/image";
+"use client";
+import React, { useState, useEffect, FormEvent, ChangeEvent } from "react";
+import Select from "react-select";
+
+interface AbsenFormData {
+  nama: string;
+  day: string;
+  divisi: string;
+}
+
+interface OptionType {
+  value: string;
+  label: string;
+}
 
 export default function Home() {
+  const [formData, setFormData] = useState<AbsenFormData>({
+    nama: "",
+    day: "Day 1",
+    divisi: "mentor",
+  });
+  const [status, setStatus] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+
+  const [daftarPanitia, setDaftarPanitia] = useState<OptionType[]>([]);
+  const [isLoadingNames, setIsLoadingNames] = useState<boolean>(true);
+
+  // Menggunakan 'any' untuk menghindari konflik tipe bawaan react-select
+  const [selectedName, setSelectedName] = useState<any>(null);
+
+  const days: string[] = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"];
+  const divisions: string[] = [
+    "mentor",
+    "task",
+    "opras",
+    "fundraise",
+    "acara",
+    "k3",
+    "spv",
+    "design",
+    "produksi",
+    "publikasi",
+    "PI",
+  ];
+
+  useEffect(() => {
+    const fetchNames = async () => {
+      try {
+        const res = await fetch("/api/panitia");
+        if (res.ok) {
+          const data = await res.json();
+          const options = data.names.map((name: string) => ({
+            value: name,
+            label: name,
+          }));
+          setDaftarPanitia(options);
+        }
+      } catch (error) {
+        console.error("Gagal memuat nama panitia");
+      } finally {
+        setIsLoadingNames(false);
+      }
+    };
+
+    fetchNames();
+  }, []);
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!formData.nama) {
+      setStatus("Mohon pilih nama panitia terlebih dahulu.");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("");
+
+    try {
+      const res = await fetch("/api/absen", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (res.ok) {
+        setStatus("Berhasil absen sebagai Hadir!");
+        setFormData({ ...formData, nama: "" });
+        setSelectedName(null);
+      } else {
+        const data = await res.json();
+        setStatus(data.message || "Gagal absen. Silakan coba lagi.");
+      }
+    } catch (err) {
+      setStatus("Terjadi kesalahan jaringan.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleNameChange = (selectedOption: any) => {
+    setSelectedName(selectedOption);
+    setFormData((prev) => ({
+      ...prev,
+      nama: selectedOption ? selectedOption.value : "",
+    }));
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+    <main className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border border-gray-200">
+        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+          Absensi Panitia
+        </h1>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Nama Lengkap
+            </label>
+            <Select
+              options={daftarPanitia}
+              value={selectedName}
+              onChange={handleNameChange}
+              isLoading={isLoadingNames}
+              isDisabled={isLoadingNames}
+              placeholder={
+                isLoadingNames
+                  ? "Memuat dari Spreadsheet..."
+                  : "Ketik atau pilih nama..."
+              }
+              isClearable
+              className="text-gray-800"
+              instanceId="nama-panitia-select"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Hari
+            </label>
+            <select
+              name="day"
+              value={formData.day}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black outline-none bg-white"
+            >
+              {days.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Divisi
+            </label>
+            <select
+              name="divisi"
+              value={formData.divisi}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black outline-none bg-white capitalize"
+            >
+              {divisions.map((div) => (
+                <option key={div} value={div}>
+                  {div}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading || isLoadingNames}
+            className="w-full bg-black text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition-colors disabled:bg-gray-400"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            {loading ? "Memproses..." : "Kirim Absensi"}
+          </button>
+        </form>
+
+        {status && (
+          <div
+            className={`mt-4 p-3 rounded-lg text-center font-semibold ${status.includes("Berhasil") ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}
+          >
+            {status}
+          </div>
+        )}
+      </div>
+    </main>
   );
 }
