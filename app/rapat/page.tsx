@@ -34,10 +34,10 @@ export default function Rapat() {
     "fundraise",
     "acara",
     "k3",
-    "spv",
+    "supervisor",
     "design",
     "produksi",
-    "publikasi",
+    "HumPub",
     "PI",
   ];
 
