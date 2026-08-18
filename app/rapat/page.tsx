@@ -24,14 +24,14 @@ export default function Rapat() {
   const [isLoadingNames, setIsLoadingNames] = useState<boolean>(true);
   const [selectedName, setSelectedName] = useState<any>(null);
   const divisions = [
-    "mentor",
-    "task",
-    "opras",
-    "fundraise",
-    "acara",
-    "k3",
+    "Mentor",
+    "Task",
+    "Opras",
+    "Fundraising",
+    "Acara",
+    "K3",
     "Supervisor",
-    "design",
+    "Design",
     "produksi",
     "HumPub",
     "PI",

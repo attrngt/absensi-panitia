@@ -26,14 +26,14 @@ export default function Home() {
 
   const days = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"];
   const divisions = [
-    "mentor",
-    "task",
-    "opras",
-    "fundraise",
-    "acara",
-    "k3",
+    "Mentor",
+    "Task",
+    "Opras",
+    "Fundraising",
+    "Acara",
+    "K3",
     "Supervisor",
-    "design",
+    "Design",
     "produksi",
     "HumPub",
     "PI",
