@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
   try {
-    const { nama, divisi, sesiRapat } = await req.json();
+    const { nama, divisi, sesiRapat, token } = await req.json();
 
     const auth = new google.auth.GoogleAuth({
       credentials: {
@@ -16,7 +16,43 @@ export async function POST(req: NextRequest) {
     const sheets = google.sheets({ version: "v4", auth });
     const spreadsheetId = "1s9oAtKp7ISBY-BOTeQpPnj6fCSGtMkQwBj5li4D_kqU";
 
-    // Menambah baris baru (Append) ke sheet "Rapat" sampai Kolom G
+    // 1. VALIDASI TOKEN DARI SHEET "Pengaturan" (Cari baris yang event-nya "Rapat")
+    const settingsRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Pengaturan!A:B",
+    });
+    const settingRows = settingsRes.data.values || [];
+    const eventSetting = settingRows.find((row) => row[0] === "Rapat");
+
+    if (!eventSetting || eventSetting[1] !== token) {
+      return NextResponse.json(
+        { success: false, message: "Token Rapat tidak valid!" },
+        { status: 403 },
+      );
+    }
+
+    // 2. CEK DUPLIKAT DI SHEET "Rapat"
+    const rapatRes = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: "Rapat!B:G", // B (Nama) sampai G (Sesi)
+    });
+    const rapatRows = rapatRes.data.values || [];
+
+    // Cek apakah ada baris dengan Nama (index 0) dan Sesi (index 5) yang sama persis
+    const isDuplicate = rapatRows.some(
+      (row) => row[0] === nama && row[5] === sesiRapat,
+    );
+    if (isDuplicate) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Anda sudah presensi untuk sesi rapat ini!",
+        },
+        { status: 400 },
+      );
+    }
+
+    // 3. APPEND DATA RAPAT BARU
     await sheets.spreadsheets.values.append({
       spreadsheetId,
       range: "Rapat!A:G",
@@ -24,13 +60,13 @@ export async function POST(req: NextRequest) {
       requestBody: {
         values: [
           [
-            `=ROW()-1`, // Kolom A: Nomor urut otomatis
-            nama, // Kolom B: Nama
-            new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }), // Kolom C: Waktu Submit
-            "Hadir", // Kolom D: Status
-            divisi, // Kolom E: Divisi
-            "", // Kolom F: Alasan (Kosong)
-            sesiRapat, // Kolom G: Tanggal & Jam Rapat (Fiksasi Sesi)
+            `=ROW()-1`,
+            nama,
+            new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
+            "Hadir",
+            divisi,
+            "",
+            sesiRapat,
           ],
         ],
       },

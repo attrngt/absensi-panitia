@@ -7,11 +7,7 @@ interface AbsenFormData {
   nama: string;
   day: string;
   divisi: string;
-}
-
-interface OptionType {
-  value: string;
-  label: string;
+  token: string;
 }
 
 export default function Home() {
@@ -19,24 +15,24 @@ export default function Home() {
     nama: "",
     day: "Day 1",
     divisi: "mentor",
+    token: "",
   });
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  const [daftarPanitia, setDaftarPanitia] = useState<OptionType[]>([]);
+  const [daftarPanitia, setDaftarPanitia] = useState<any[]>([]);
   const [isLoadingNames, setIsLoadingNames] = useState<boolean>(true);
-
   const [selectedName, setSelectedName] = useState<any>(null);
 
-  const days: string[] = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"];
-  const divisions: string[] = [
+  const days = ["Day 1", "Day 2", "Day 3", "Day 4", "Day 5"];
+  const divisions = [
     "mentor",
     "task",
     "opras",
     "fundraise",
     "acara",
     "k3",
-    "supervisor",
+    "Supervisor",
     "design",
     "produksi",
     "HumPub",
@@ -44,32 +40,49 @@ export default function Home() {
   ];
 
   useEffect(() => {
+    // Pelindung Anti-Error Next.js SSR
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlDay = params.get("day");
+      const urlToken = params.get("token");
+      const savedNama = localStorage.getItem("pror26_nama");
+      const savedDivisi = localStorage.getItem("pror26_divisi");
+
+      setFormData((prev) => ({
+        ...prev,
+        day: urlDay || prev.day,
+        token: urlToken || prev.token,
+        nama: savedNama || prev.nama,
+        divisi: savedDivisi || prev.divisi,
+      }));
+
+      if (savedNama) {
+        setSelectedName({ value: savedNama, label: savedNama });
+      }
+    }
+
     const fetchNames = async () => {
       try {
         const res = await fetch("/api/panitia");
         if (res.ok) {
           const data = await res.json();
-          const options = data.names.map((name: string) => ({
-            value: name,
-            label: name,
-          }));
-          setDaftarPanitia(options);
+          setDaftarPanitia(
+            data.names.map((n: string) => ({ value: n, label: n })),
+          );
         }
       } catch (error) {
-        console.error("Gagal memuat nama panitia");
+        console.error("Gagal mengambil nama");
       } finally {
         setIsLoadingNames(false);
       }
     };
-
     fetchNames();
   }, []);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
-    if (!formData.nama) {
-      setStatus("Mohon pilih nama panitia terlebih dahulu.");
+    if (!formData.nama || !formData.token) {
+      setStatus("Mohon lengkapi nama dan token.");
       return;
     }
 
@@ -83,13 +96,15 @@ export default function Home() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
       if (res.ok) {
         setStatus("Berhasil absen sebagai Hadir!");
-        setFormData({ ...formData, nama: "" });
-        setSelectedName(null);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pror26_nama", formData.nama);
+          localStorage.setItem("pror26_divisi", formData.divisi);
+        }
       } else {
-        const data = await res.json();
-        setStatus(data.message || "Gagal absen. Silakan coba lagi.");
+        setStatus(data.message || "Gagal absen.");
       }
     } catch (err) {
       setStatus("Terjadi kesalahan jaringan.");
@@ -98,7 +113,9 @@ export default function Home() {
     }
   };
 
-  const handleChange = (e: ChangeEvent<HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLSelectElement | HTMLInputElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -116,9 +133,7 @@ export default function Home() {
       ...provided,
       borderColor: state.isFocused ? "#b8860b" : "#d1d5db",
       boxShadow: state.isFocused ? "0 0 0 1px #b8860b" : "none",
-      "&:hover": {
-        borderColor: "#b8860b",
-      },
+      "&:hover": { borderColor: "#b8860b" },
       padding: "2px",
       borderRadius: "0.5rem",
     }),
@@ -138,13 +153,13 @@ export default function Home() {
     <main className="min-h-screen bg-gradient-to-br from-[#3b0918] via-[#21040b] to-[#120105] flex items-center justify-center p-4 md:p-6 font-sans">
       <div className="bg-[#fcf8ed] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-lg border-4 border-[#c59c53] relative overflow-hidden">
         <div className="w-full bg-[#120105] border-b-4 border-[#c59c53]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/image.png"
-            alt="Prorientation 2026 Header"
+            alt="Prorientation Header"
             className="w-full h-auto object-cover max-h-48"
           />
         </div>
-
         <div className="p-6 sm:p-8">
           <h1
             className="text-2xl sm:text-3xl font-extrabold text-[#5c1a26] mb-6 text-center tracking-wide uppercase"
@@ -152,8 +167,22 @@ export default function Home() {
           >
             Presensi Panitia
           </h1>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-bold text-[#5c1a26] mb-1">
+                Token Akses
+              </label>
+              <input
+                type="text"
+                name="token"
+                required
+                value={formData.token}
+                onChange={handleChange}
+                className="w-full px-4 py-2 border border-[#c59c53] rounded-lg focus:ring-2 focus:ring-[#8c1c2b] outline-none bg-yellow-50 text-center font-bold tracking-widest text-[#8c1c2b]"
+                placeholder="Masukkan Token"
+              />
+            </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-bold text-[#5c1a26] mb-1">
                 Nama Lengkap
@@ -164,11 +193,7 @@ export default function Home() {
                 onChange={handleNameChange}
                 isLoading={isLoadingNames}
                 isDisabled={isLoadingNames}
-                placeholder={
-                  isLoadingNames
-                    ? "Menggulung tirai nama..."
-                    : "Ketik atau pilih nama..."
-                }
+                placeholder="Cari nama..."
                 isClearable
                 styles={customSelectStyles}
                 instanceId="nama-panitia-select"
@@ -184,7 +209,7 @@ export default function Home() {
                   name="day"
                   value={formData.day}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c59c53] focus:border-[#c59c53] outline-none bg-white text-[#3e1619] font-medium"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-[#c59c53] outline-none bg-white font-medium text-[#3e1619]"
                 >
                   {days.map((d) => (
                     <option key={d} value={d}>
@@ -193,7 +218,6 @@ export default function Home() {
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm font-bold text-[#5c1a26] mb-1">
                   Divisi
@@ -202,7 +226,7 @@ export default function Home() {
                   name="divisi"
                   value={formData.divisi}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c59c53] focus:border-[#c59c53] outline-none bg-white capitalize text-[#3e1619] font-medium"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-[#c59c53] outline-none bg-white font-medium text-[#3e1619] capitalize"
                 >
                   {divisions.map((div) => (
                     <option key={div} value={div}>
@@ -216,9 +240,9 @@ export default function Home() {
             <button
               type="submit"
               disabled={loading || isLoadingNames}
-              className="w-full mt-4 bg-gradient-to-r from-[#8c1c2b] to-[#5c1a26] text-[#f7e5b4] font-bold py-3.5 rounded-lg hover:from-[#5c1a26] hover:to-[#3b0918] transition-all duration-300 shadow-md border border-[#c59c53] uppercase tracking-wider disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full mt-4 bg-gradient-to-r from-[#8c1c2b] to-[#5c1a26] text-[#f7e5b4] font-bold py-3.5 rounded-lg hover:from-[#5c1a26] hover:to-[#3b0918] transition-all duration-300 shadow-md border border-[#c59c53] uppercase tracking-wider disabled:opacity-70"
             >
-              {loading ? "Memproses..." : "Kirim Absensi"}
+              {loading ? "Memvalidasi..." : "Kirim Absensi"}
             </button>
           </form>
 
@@ -229,8 +253,6 @@ export default function Home() {
               {status}
             </div>
           )}
-
-          {/* Ini bagian tambahannya: Link ke halaman rapat */}
           <div className="mt-6 text-center">
             <Link
               href="/rapat"

@@ -6,35 +6,31 @@ import Link from "next/link";
 interface RapatFormData {
   nama: string;
   divisi: string;
-  sesiRapat: string; // Tambahan state baru
-}
-
-interface OptionType {
-  value: string;
-  label: string;
+  sesiRapat: string;
+  token: string;
 }
 
 export default function Rapat() {
   const [formData, setFormData] = useState<RapatFormData>({
     nama: "",
     divisi: "mentor",
-    sesiRapat: "", // Default kosong
+    sesiRapat: "",
+    token: "",
   });
   const [status, setStatus] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
 
-  const [daftarPanitia, setDaftarPanitia] = useState<OptionType[]>([]);
+  const [daftarPanitia, setDaftarPanitia] = useState<any[]>([]);
   const [isLoadingNames, setIsLoadingNames] = useState<boolean>(true);
   const [selectedName, setSelectedName] = useState<any>(null);
-
-  const divisions: string[] = [
+  const divisions = [
     "mentor",
     "task",
     "opras",
     "fundraise",
     "acara",
     "k3",
-    "supervisor",
+    "Supervisor",
     "design",
     "produksi",
     "HumPub",
@@ -42,19 +38,37 @@ export default function Rapat() {
   ];
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlSesi = params.get("sesi");
+      const urlToken = params.get("token");
+      const savedNama = localStorage.getItem("pror26_nama");
+      const savedDivisi = localStorage.getItem("pror26_divisi");
+
+      setFormData((prev) => ({
+        ...prev,
+        sesiRapat: urlSesi || prev.sesiRapat,
+        token: urlToken || prev.token,
+        nama: savedNama || prev.nama,
+        divisi: savedDivisi || prev.divisi,
+      }));
+
+      if (savedNama) {
+        setSelectedName({ value: savedNama, label: savedNama });
+      }
+    }
+
     const fetchNames = async () => {
       try {
         const res = await fetch("/api/panitia");
         if (res.ok) {
           const data = await res.json();
-          const options = data.names.map((name: string) => ({
-            value: name,
-            label: name,
-          }));
-          setDaftarPanitia(options);
+          setDaftarPanitia(
+            data.names.map((n: string) => ({ value: n, label: n })),
+          );
         }
       } catch (error) {
-        console.error("Gagal memuat nama panitia");
+        console.error("Gagal mengambil nama");
       } finally {
         setIsLoadingNames(false);
       }
@@ -64,12 +78,8 @@ export default function Rapat() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!formData.nama) {
-      setStatus("Mohon pilih nama panitia terlebih dahulu.");
-      return;
-    }
-    if (!formData.sesiRapat) {
-      setStatus("Mohon isi Tanggal/Sesi Rapat.");
+    if (!formData.nama || !formData.sesiRapat || !formData.token) {
+      setStatus("Mohon lengkapi data dan token.");
       return;
     }
 
@@ -83,14 +93,15 @@ export default function Rapat() {
         body: JSON.stringify(formData),
       });
 
+      const data = await res.json();
       if (res.ok) {
         setStatus("Berhasil! Kehadiran rapat telah tercatat.");
-        // Reset nama saja, biarkan sesi dan divisi tetap terisi agar panitia/admin selanjutnya tidak perlu mengetik ulang sesi rapat
-        setFormData({ ...formData, nama: "" });
-        setSelectedName(null);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("pror26_nama", formData.nama);
+          localStorage.setItem("pror26_divisi", formData.divisi);
+        }
       } else {
-        const data = await res.json();
-        setStatus(data.message || "Gagal absen. Silakan coba lagi.");
+        setStatus(data.message || "Gagal absen.");
       }
     } catch (err) {
       setStatus("Terjadi kesalahan jaringan.");
@@ -139,39 +150,51 @@ export default function Rapat() {
     <main className="min-h-screen bg-gradient-to-br from-[#3b0918] via-[#21040b] to-[#120105] flex items-center justify-center p-4 md:p-6 font-sans">
       <div className="bg-[#fcf8ed] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] w-full max-w-lg border-4 border-[#c59c53] relative overflow-hidden">
         <div className="w-full bg-[#120105] border-b-4 border-[#c59c53]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/image.png"
-            alt="Prorientation 2026 Header"
+            alt="Header"
             className="w-full h-auto object-cover max-h-48"
           />
         </div>
-
         <div className="p-6 sm:p-8">
-          <h1
-            className="text-2xl sm:text-3xl font-extrabold text-[#5c1a26] mb-2 text-center tracking-wide uppercase"
-            style={{ textShadow: "1px 1px 2px rgba(197, 156, 83, 0.3)" }}
-          >
+          <h1 className="text-2xl font-extrabold text-[#5c1a26] mb-2 text-center tracking-wide uppercase">
             Presensi Rapat
           </h1>
-          <p className="text-center text-[#8c1c2b] font-medium mb-6 text-sm">
+          <p className="text-center text-[#8c1c2b] mb-6 text-sm">
             Prorientation 2026
           </p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Input Sesi Rapat Baru */}
-            <div>
-              <label className="block text-sm font-bold text-[#5c1a26] mb-1">
-                Tanggal / Sesi Rapat
-              </label>
-              <input
-                type="text"
-                name="sesiRapat"
-                required
-                value={formData.sesiRapat}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c59c53] focus:border-[#c59c53] outline-none bg-white text-[#3e1619] font-medium"
-                placeholder="Contoh: 22 Agustus 16.00"
-              />
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-bold text-[#5c1a26] mb-1">
+                  Token Rapat
+                </label>
+                <input
+                  type="text"
+                  name="token"
+                  required
+                  value={formData.token}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-[#c59c53] bg-yellow-50 rounded-lg text-center font-bold tracking-widest outline-none text-[#8c1c2b]"
+                  placeholder="Token"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-[#5c1a26] mb-1">
+                  Sesi / Tanggal
+                </label>
+                <input
+                  type="text"
+                  name="sesiRapat"
+                  required
+                  value={formData.sesiRapat}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none text-[#3e1619] font-medium"
+                  placeholder="Cth: 18 Agustus"
+                />
+              </div>
             </div>
 
             <div>
@@ -184,11 +207,7 @@ export default function Rapat() {
                 onChange={handleNameChange}
                 isLoading={isLoadingNames}
                 isDisabled={isLoadingNames}
-                placeholder={
-                  isLoadingNames
-                    ? "Menggulung tirai nama..."
-                    : "Ketik atau pilih nama..."
-                }
+                placeholder="Cari nama..."
                 isClearable
                 styles={customSelectStyles}
                 instanceId="nama-panitia-select"
@@ -203,7 +222,7 @@ export default function Rapat() {
                 name="divisi"
                 value={formData.divisi}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#c59c53] focus:border-[#c59c53] outline-none bg-white capitalize text-[#3e1619] font-medium"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg outline-none text-[#3e1619] font-medium capitalize"
               >
                 {divisions.map((div) => (
                   <option key={div} value={div}>
@@ -216,9 +235,9 @@ export default function Rapat() {
             <button
               type="submit"
               disabled={loading || isLoadingNames}
-              className="w-full mt-4 bg-gradient-to-r from-[#8c1c2b] to-[#5c1a26] text-[#f7e5b4] font-bold py-3.5 rounded-lg hover:from-[#5c1a26] hover:to-[#3b0918] transition-all duration-300 shadow-md border border-[#c59c53] uppercase tracking-wider disabled:opacity-70 disabled:cursor-not-allowed"
+              className="w-full mt-4 bg-gradient-to-r from-[#8c1c2b] to-[#5c1a26] text-[#f7e5b4] font-bold py-3.5 rounded-lg hover:from-[#5c1a26] hover:to-[#3b0918] transition-all shadow-md border border-[#c59c53] uppercase disabled:opacity-70"
             >
-              {loading ? "Memproses..." : "Hadir Rapat"}
+              {loading ? "Memvalidasi..." : "Hadir Rapat"}
             </button>
           </form>
 
@@ -229,7 +248,6 @@ export default function Rapat() {
               {status}
             </div>
           )}
-
           <div className="mt-6 text-center">
             <Link
               href="/"
